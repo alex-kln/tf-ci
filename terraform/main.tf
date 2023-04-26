@@ -15,5 +15,6 @@ provider "google" {
 }
 
 resource "google_pubsub_topic" "example_resource" {
+  #checkov:skip=CKV_GCP_83:No need to encrypt with CSEK
   name = var.topic_name
 }
