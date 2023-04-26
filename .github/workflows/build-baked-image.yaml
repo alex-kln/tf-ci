@@ -1,0 +1,44 @@
+name: Push Baked image to GHCR
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-push-image:
+    runs-on: ubuntu-latest
+    env:
+      GH_NAME: alex-kln
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: "Login to GitHub Container Registry"
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      - name: Bump version and push tag
+        id: tag_version
+        uses: mathieudutour/github-tag-action@v6.0
+        with:
+          github_token: ${{ secrets.GHCR_PAT }}
+
+      - name: "Build Image with dependencies"
+        run: |
+          docker build . --tag ghcr.io/${{ env.GH_NAME }}/tf-ci:latest
+
+      # - name: Run Trivy vulnerability scanner
+      #   uses: aquasecurity/trivy-action@master
+      #   with:
+      #     image-ref: "ghcr.io/${{ env.GH_NAME }}/tf-ci:latest"
+      #     format: "table"
+      #     exit-code: "1"
+      #     ignore-unfixed: true
+      #     vuln-type: "os,library"
+      #     severity: "CRITICAL"
+
+      - name: "Push image"
+        run: |
+          docker push ghcr.io/${{ env.GH_NAME }}/tf-ci:latest

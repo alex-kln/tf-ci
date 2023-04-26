@@ -1,0 +1,65 @@
+name: Terraform CI
+
+on:
+  # push:
+  #   branches: [main]
+  # pull_request:
+  workflow_dispatch:
+
+jobs:
+  terraform_checks:
+    runs-on: ubuntu-latest
+    # Indicates pre-baked image to use
+    container: ghcr.io/alex-kln/tf-ci:latest
+    env:
+      WORKING_DIR: ./terraform
+      TERRAFORM_VERSION: 1.1.4
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Check versions
+        run: |
+          terraform --version
+          tfsec --version
+          tflint --version
+          checkov --version
+
+      - name: "Auth to GCP"
+        uses: "google-github-actions/auth@v1"
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Terraform init
+        id: init
+        working-directory: ${{ env.WORKING_DIR }}
+        run: terraform init
+
+      - name: Terraform validate
+        id: validate
+        working-directory: ${{ env.WORKING_DIR }}
+        run: terraform validate
+
+      - name: TFlint
+        id: tflint
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          tflint --recursive --config "$(pwd)/.tflint.hcl"
+
+      - name: TFsec
+        id: tfsec
+        working-directory: ${{ env.WORKING_DIR }}
+        run: tfsec . --force-all-dirs --include-passed
+
+      - name: checkov
+        id: checkov
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          checkov -d . --soft-fail
+
+      - name: Terraform plan
+        id: plan
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          terraform plan -no-color -input=false
